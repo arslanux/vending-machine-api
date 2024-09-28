@@ -3,20 +3,20 @@ import { ProductService } from './product.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Product } from './product.entity';
 import { User } from '../user/user.entity';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 
 describe('ProductService', () => {
   let service: ProductService;
-  let productRepository: any;
-  let userRepository: any;
+  let mockProductRepository: any;
+  let mockUserRepository: any;
 
   beforeEach(async () => {
-    productRepository = {
+    mockProductRepository = {
       findOne: jest.fn(),
       save: jest.fn(),
     };
 
-    userRepository = {
+    mockUserRepository = {
       findOne: jest.fn(),
       save: jest.fn(),
     };
@@ -26,11 +26,11 @@ describe('ProductService', () => {
         ProductService,
         {
           provide: getRepositoryToken(Product),
-          useValue: productRepository,
+          useValue: mockProductRepository,
         },
         {
           provide: getRepositoryToken(User),
-          useValue: userRepository,
+          useValue: mockUserRepository,
         },
       ],
     }).compile();
@@ -42,21 +42,69 @@ describe('ProductService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('findOne', () => {
-    it('should return a product if found', async () => {
-      const mockProduct = { id: 1, productName: 'Test Product', cost: 10, amountAvailable: 5 };
-      productRepository.findOne.mockResolvedValue(mockProduct);
+  describe('buy', () => {
+    it('should successfully buy a product', async () => {
+      const product = new Product();
+      product.id = 1;
+      product.productName = 'Test Product';
+      product.cost = 50;
+      product.amountAvailable = 10;
 
-      const result = await service.findOne(1);
-      expect(result).toEqual(mockProduct);
+      const user = new User();
+      user.id = 1;
+      user.username = 'testuser';
+      user.role = 'buyer';
+      user.deposit = 100;
+
+      mockProductRepository.findOne.mockResolvedValue(product);
+      mockUserRepository.findOne.mockResolvedValue(user);
+      mockProductRepository.save.mockResolvedValue({ ...product, amountAvailable: 9 });
+      mockUserRepository.save.mockResolvedValue({ ...user, deposit: 50 });
+
+      const result = await service.buy(1, 1, 1);
+
+      expect(result.totalSpent).toBe(50);
+      expect(result.products.length).toBe(1);
+      expect(result.products[0].productName).toBe('Test Product');
+      expect(result.change).toEqual([50]);
     });
 
-    it('should throw NotFoundException if product not found', async () => {
-      productRepository.findOne.mockResolvedValue(null);
+    it('should throw ConflictException if not enough products available', async () => {
+      const product = new Product();
+      product.id = 1;
+      product.productName = 'Test Product';
+      product.cost = 50;
+      product.amountAvailable = 1;
 
-      await expect(service.findOne(1)).rejects.toThrow(NotFoundException);
+      const user = new User();
+      user.id = 1;
+      user.username = 'testuser';
+      user.role = 'buyer';
+      user.deposit = 100;
+
+      mockProductRepository.findOne.mockResolvedValue(product);
+      mockUserRepository.findOne.mockResolvedValue(user);
+
+      await expect(service.buy(1, 2, 1)).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw ConflictException if user has insufficient funds', async () => {
+      const product = new Product();
+      product.id = 1;
+      product.productName = 'Test Product';
+      product.cost = 50;
+      product.amountAvailable = 10;
+
+      const user = new User();
+      user.id = 1;
+      user.username = 'testuser';
+      user.role = 'buyer';
+      user.deposit = 40;
+
+      mockProductRepository.findOne.mockResolvedValue(product);
+      mockUserRepository.findOne.mockResolvedValue(user);
+
+      await expect(service.buy(1, 1, 1)).rejects.toThrow(ConflictException);
     });
   });
-
-  // Add more tests for other methods...
 });

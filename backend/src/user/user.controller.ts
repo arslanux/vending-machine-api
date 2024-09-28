@@ -1,47 +1,44 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Req } from '@nestjs/common';
 import { UserService } from './user.service';
-import { User } from './user.entity';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { DepositDto } from './dto/deposit.dto';
 
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Get()
-  async status(): Promise<{ status: string }> {
-    return { status: 'OK' };
-  }
-
   @Post()
-  async create(@Body() createUserDto: { username: string; password: string; role: 'buyer' | 'seller' }): Promise<User> {
+  async create(@Body() createUserDto: CreateUserDto) {
     return this.userService.create(createUserDto.username, createUserDto.password, createUserDto.role);
   }
 
-  @Get('all')
+  @Get()
   @UseGuards(JwtAuthGuard)
-  async findAll(): Promise<User[]> {
+  async findAll() {
     return this.userService.findAll();
   }
 
   @Get(':username')
   @UseGuards(JwtAuthGuard)
-  async findOne(@Param('username') username: string): Promise<User> {
+  async findOne(@Param('username') username: string) {
     return this.userService.findOne(username);
   }
 
-  @Put('deposit/:username')
+  @Put('deposit')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('buyer')
-  async deposit(@Param('username') username: string, @Body('amount') amount: number): Promise<User> {
-    return this.userService.deposit(username, amount);
+  async deposit(@Req() req, @Body() depositDto: DepositDto) {
+    return this.userService.deposit(req.user.username, depositDto.amount);
   }
 
-  @Put('reset/:username')
+  @Put('reset')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('buyer')
-  async reset(@Param('username') username: string): Promise<User> {
-    return this.userService.reset(username);
+  async reset(@Req() req) {
+    return this.userService.reset(req.user.username);
   }
 }

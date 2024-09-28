@@ -1,59 +1,106 @@
-import { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Container, Box, Typography, Button } from '@mui/material';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
 import axios from 'axios';
-import { Container, Typography, Paper, List, ListItem, ListItemIcon, ListItemText, ThemeProvider, createTheme, CssBaseline } from '@mui/material';
-import { CheckCircle, Error } from '@mui/icons-material';
+import Register from './components/Register';
+import Login from './components/Login';
+import ProductList from './components/ProductList';
+import SellerDashboard from './components/SellerDashboard';
 
-const theme = createTheme();
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976d2',
+    },
+    secondary: {
+      main: '#dc004e',
+    },
+  },
+});
 
 function App() {
-  const [apiStatus, setApiStatus] = useState({});
+  const [token, setToken] = useState(null);
+  const [username, setUsername] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [currentView, setCurrentView] = useState('login');
 
-  useEffect(() => {
-    const checkEndpoint = async (endpoint) => {
-      try {
-        await axios.get(`http://localhost:3000${endpoint}`);
-        return true;
-      } catch (error) {
-        return false;
-      }
-    };
+  const handleLogin = (newToken, newUsername, role) => {
+    console.log('Login successful:', { newToken, newUsername, role });
+    setToken(newToken);
+    setUsername(newUsername);
+    setUserRole(role);
+    setCurrentView('dashboard');
+  };
 
-    const checkApiStatus = async () => {
-      const endpoints = ['/user', '/product', '/auth/status'];
-      const status = {};
+  const handleLogout = async () => {
+    try {
+      await axios.post('http://localhost:3000/auth/logout', {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setToken(null);
+      setUsername(null);
+      setUserRole(null);
+      setCurrentView('login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
-      for (const endpoint of endpoints) {
-        status[endpoint] = await checkEndpoint(endpoint);
-      }
+  const handleLogoutAll = async () => {
+    try {
+      await axios.post('http://localhost:3000/auth/logout-all', {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setToken(null);
+      setUsername(null);
+      setUserRole(null);
+      setCurrentView('login');
+    } catch (error) {
+      console.error('Logout all failed:', error);
+    }
+  };
 
-      setApiStatus(status);
-    };
-
-    checkApiStatus();
-    const interval = setInterval(checkApiStatus, 30000); // Check every 30 seconds
-
-    return () => clearInterval(interval);
-  }, []);
+  console.log('Current state:', { token, username, userRole, currentView });
 
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Container sx={{ mt: 4 }}>
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h4" gutterBottom>
-            API Status
+      <Container>
+        <Box sx={{ my: 4 }}>
+          <Typography variant="h3" component="h1" gutterBottom>
+            Vending Machine
           </Typography>
-          <List>
-            {Object.entries(apiStatus).map(([endpoint, status]) => (
-              <ListItem key={endpoint}>
-                <ListItemIcon>
-                  {status ? <CheckCircle color="primary" /> : <Error color="error" />}
-                </ListItemIcon>
-                <ListItemText primary={endpoint} secondary={status ? 'Online' : 'Offline'} />
-              </ListItem>
-            ))}
-          </List>
-        </Paper>
+          {!token && (
+            <Box sx={{ mb: 2 }}>
+              <Button onClick={() => setCurrentView('login')} sx={{ mr: 1 }}>Login</Button>
+              <Button onClick={() => setCurrentView('register')}>Register</Button>
+            </Box>
+          )}
+          {token && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle1">Logged in as: {username} ({userRole})</Typography>
+              <Button onClick={handleLogout} sx={{ mr: 1 }}>Logout</Button>
+              <Button onClick={handleLogoutAll}>Logout All Sessions</Button>
+            </Box>
+          )}
+          {currentView === 'login' && <Login onLogin={handleLogin} />}
+          {currentView === 'register' && <Register />}
+          {currentView === 'dashboard' && userRole === 'buyer' && (
+            <>
+              <Typography>Buyer Dashboard</Typography>
+              <ProductList token={token} userRole={userRole} />
+            </>
+          )}
+          {currentView === 'dashboard' && userRole === 'seller' && (
+            <>
+              <Typography>Seller Dashboard</Typography>
+              <SellerDashboard token={token} />
+            </>
+          )}
+          <Box sx={{ mt: 2, p: 2, border: '1px solid #ccc' }}>
+            <Typography variant="h6">Debug Info:</Typography>
+            <pre>{JSON.stringify({ token, username, userRole, currentView }, null, 2)}</pre>
+          </Box>
+        </Box>
       </Container>
     </ThemeProvider>
   );

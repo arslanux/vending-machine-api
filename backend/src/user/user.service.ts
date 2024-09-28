@@ -10,9 +10,6 @@ export class UserService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
   ) {}
-  async findAll(): Promise<User[]> {
-    return this.userRepository.find();
-  }
 
   async create(username: string, password: string, role: 'buyer' | 'seller'): Promise<User> {
     const existingUser = await this.userRepository.findOne({ where: { username } });
@@ -23,6 +20,10 @@ export class UserService {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = this.userRepository.create({ username, password: hashedPassword, role });
     return this.userRepository.save(user);
+  }
+
+  async findAll(): Promise<User[]> {
+    return this.userRepository.find();
   }
 
   async findOne(username: string): Promise<User> {

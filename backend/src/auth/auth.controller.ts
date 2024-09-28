@@ -1,5 +1,6 @@
-import { Controller, Post, Get, Body, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, UnauthorizedException, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -14,8 +15,18 @@ export class AuthController {
     return this.authService.login(user);
   }
 
-  @Get('status')
-  getStatus() {
-    return { status: 'OK' };
+  @UseGuards(JwtAuthGuard)
+  @Post('logout')
+  async logout(@Req() req) {
+    const token = req.headers.authorization.split(' ')[1];
+    await this.authService.logout(req.user.username, token);
+    return { message: 'Logged out successfully' };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('logout-all')
+  async logoutAll(@Req() req) {
+    await this.authService.logoutAll(req.user.username);
+    return { message: 'All sessions terminated successfully' };
   }
 }

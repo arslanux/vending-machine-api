@@ -74,4 +74,39 @@ describe('UserService', () => {
       await expect(service.findOne('testuser')).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('deposit', () => {
+    it('should successfully deposit valid coin amounts', async () => {
+      const user = new User();
+      user.username = 'testuser';
+      user.role = 'buyer';
+      user.deposit = 0;
+
+      mockRepository.findOne.mockResolvedValue(user);
+      mockRepository.save.mockResolvedValue({ ...user, deposit: 5 });
+
+      const result = await service.deposit('testuser', 5);
+      expect(result.deposit).toBe(5);
+    });
+
+    it('should throw ConflictException for invalid coin amounts', async () => {
+      const user = new User();
+      user.username = 'testuser';
+      user.role = 'buyer';
+
+      mockRepository.findOne.mockResolvedValue(user);
+
+      await expect(service.deposit('testuser', 7)).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw ConflictException if user is not a buyer', async () => {
+      const user = new User();
+      user.username = 'testuser';
+      user.role = 'seller';
+
+      mockRepository.findOne.mockResolvedValue(user);
+
+      await expect(service.deposit('testuser', 5)).rejects.toThrow(ConflictException);
+    });
+  });
 });
