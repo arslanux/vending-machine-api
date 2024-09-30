@@ -6,6 +6,7 @@ import Register from './components/Register';
 import Login from './components/Login';
 import ProductList from './components/ProductList';
 import SellerDashboard from './components/SellerDashboard';
+import UserProfile from './components/UserProfile';
 
 const theme = createTheme({
   palette: {
@@ -25,7 +26,6 @@ function App() {
   const [currentView, setCurrentView] = useState('login');
 
   const handleLogin = (newToken, newUsername, role) => {
-    console.log('Login successful:', { newToken, newUsername, role });
     setToken(newToken);
     setUsername(newUsername);
     setUserRole(role);
@@ -60,8 +60,6 @@ function App() {
     }
   };
 
-  console.log('Current state:', { token, username, userRole, currentView });
-
   return (
     <ThemeProvider theme={theme}>
       <Container>
@@ -84,22 +82,13 @@ function App() {
           )}
           {currentView === 'login' && <Login onLogin={handleLogin} />}
           {currentView === 'register' && <Register />}
-          {currentView === 'dashboard' && userRole === 'buyer' && (
+          {currentView === 'dashboard' && (
             <>
-              <Typography>Buyer Dashboard</Typography>
-              <ProductList token={token} userRole={userRole} />
+              <UserProfile username={username} />
+              {userRole === 'buyer' && <ProductList userRole={userRole} />}
+              {userRole === 'seller' && <SellerDashboard />}
             </>
           )}
-          {currentView === 'dashboard' && userRole === 'seller' && (
-            <>
-              <Typography>Seller Dashboard</Typography>
-              <SellerDashboard token={token} />
-            </>
-          )}
-          <Box sx={{ mt: 2, p: 2, border: '1px solid #ccc' }}>
-            <Typography variant="h6">Debug Info:</Typography>
-            <pre>{JSON.stringify({ token, username, userRole, currentView }, null, 2)}</pre>
-          </Box>
         </Box>
       </Container>
     </ThemeProvider>

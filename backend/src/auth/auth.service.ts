@@ -1,11 +1,10 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
   private activeSessions: Map<string, Set<string>> = new Map();
 
   constructor(
@@ -32,11 +31,10 @@ export class AuthService {
     
     const userSessions = this.activeSessions.get(user.username);
     if (userSessions.size >= 5) {
-      throw new UnauthorizedException('Maximum number of active sessions reached');
+      throw new UnauthorizedException('Maximum number of active sessions reached. Please log out from another device.');
     }
     
     userSessions.add(token);
-    this.logger.log(`User ${user.username} logged in. Active sessions: ${userSessions.size}`);
     
     return {
       access_token: token,
@@ -52,35 +50,15 @@ export class AuthService {
       if (sessions.size === 0) {
         this.activeSessions.delete(username);
       }
-      this.logger.log(`User ${username} logged out. Remaining sessions: ${sessions.size}`);
     }
   }
 
   async logoutAll(username: string) {
     this.activeSessions.delete(username);
-    this.logger.log(`All sessions for user ${username} terminated`);
   }
 
-  isTokenActive(username: string, userId: string): boolean {
+  isTokenActive(username: string, token: string): boolean {
     const sessions = this.activeSessions.get(username);
-    if (!sessions) {
-      this.logger.warn(`No active sessions found for user ${username}`);
-      return false;
-    }
-    
-    for (const token of sessions) {
-      try {
-        const decoded = this.jwtService.verify(token);
-        if (decoded.sub === userId) {
-          this.logger.log(`Valid token found for user ${username}`);
-          return true;
-        }
-      } catch (error) {
-        this.logger.warn(`Invalid token found for user ${username}`, error.message);
-        sessions.delete(token);
-      }
-    }
-    this.logger.warn(`No valid token found for user ${username}`);
-    return false;
+    return sessions ? sessions.has(token) : false;
   }
 }
