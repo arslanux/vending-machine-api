@@ -7,8 +7,8 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 
 describe('ProductService', () => {
   let service: ProductService;
-  let mockProductRepository: any;
-  let mockUserRepository: any;
+  let mockProductRepository;
+  let mockUserRepository;
 
   beforeEach(async () => {
     mockProductRepository = {
@@ -44,67 +44,54 @@ describe('ProductService', () => {
 
   describe('buy', () => {
     it('should successfully buy a product', async () => {
-      const product = new Product();
-      product.id = 1;
-      product.productName = 'Test Product';
-      product.cost = 50;
-      product.amountAvailable = 10;
-
-      const user = new User();
-      user.id = 1;
-      user.username = 'testuser';
-      user.role = 'buyer';
-      user.deposit = 100;
+      const product = { id: 1, productName: 'Test Product', cost: 50, amountAvailable: 10 };
+      const user = { username: 'testuser', role: 'buyer', deposit: 100 };
 
       mockProductRepository.findOne.mockResolvedValue(product);
       mockUserRepository.findOne.mockResolvedValue(user);
       mockProductRepository.save.mockResolvedValue({ ...product, amountAvailable: 9 });
       mockUserRepository.save.mockResolvedValue({ ...user, deposit: 50 });
 
-      const result = await service.buy(1, 1, 1);
+      const result = await service.buy(1, 1, 'testuser');
 
       expect(result.totalSpent).toBe(50);
       expect(result.products.length).toBe(1);
-      expect(result.products[0].productName).toBe('Test Product');
+      expect(result.products[0]).toEqual(product);
       expect(result.change).toEqual([50]);
     });
 
     it('should throw ConflictException if not enough products available', async () => {
-      const product = new Product();
-      product.id = 1;
-      product.productName = 'Test Product';
-      product.cost = 50;
-      product.amountAvailable = 1;
-
-      const user = new User();
-      user.id = 1;
-      user.username = 'testuser';
-      user.role = 'buyer';
-      user.deposit = 100;
+      const product = { id: 1, productName: 'Test Product', cost: 50, amountAvailable: 1 };
+      const user = { username: 'testuser', role: 'buyer', deposit: 100 };
 
       mockProductRepository.findOne.mockResolvedValue(product);
       mockUserRepository.findOne.mockResolvedValue(user);
 
-      await expect(service.buy(1, 2, 1)).rejects.toThrow(ConflictException);
+      await expect(service.buy(1, 2, 'testuser')).rejects.toThrow(ConflictException);
     });
 
     it('should throw ConflictException if user has insufficient funds', async () => {
-      const product = new Product();
-      product.id = 1;
-      product.productName = 'Test Product';
-      product.cost = 50;
-      product.amountAvailable = 10;
-
-      const user = new User();
-      user.id = 1;
-      user.username = 'testuser';
-      user.role = 'buyer';
-      user.deposit = 40;
+      const product = { id: 1, productName: 'Test Product', cost: 50, amountAvailable: 10 };
+      const user = { username: 'testuser', role: 'buyer', deposit: 40 };
 
       mockProductRepository.findOne.mockResolvedValue(product);
       mockUserRepository.findOne.mockResolvedValue(user);
 
-      await expect(service.buy(1, 1, 1)).rejects.toThrow(ConflictException);
+      await expect(service.buy(1, 1, 'testuser')).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw NotFoundException if product does not exist', async () => {
+      mockProductRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.buy(1, 1, 'testuser')).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw NotFoundException if user does not exist', async () => {
+      const product = { id: 1, productName: 'Test Product', cost: 50, amountAvailable: 10 };
+      mockProductRepository.findOne.mockResolvedValue(product);
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.buy(1, 1, 'nonexistentuser')).rejects.toThrow(NotFoundException);
     });
   });
 });

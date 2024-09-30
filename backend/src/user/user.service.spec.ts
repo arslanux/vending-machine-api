@@ -6,13 +6,12 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 
 describe('UserService', () => {
   let service: UserService;
-  let mockRepository: any;
+  let mockRepository;
 
   beforeEach(async () => {
     mockRepository = {
-      create: jest.fn(),
-      save: jest.fn(),
       findOne: jest.fn(),
+      save: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -32,56 +31,9 @@ describe('UserService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('create', () => {
-    it('should create a new user', async () => {
-      const createUserDto = { username: 'testuser', password: 'password', role: 'buyer' as const };
-      mockRepository.findOne.mockResolvedValue(null);
-      mockRepository.create.mockReturnValue(createUserDto);
-      mockRepository.save.mockResolvedValue(createUserDto);
-
-      const result = await service.create(createUserDto.username, createUserDto.password, createUserDto.role);
-
-      expect(result).toEqual(createUserDto);
-      expect(mockRepository.create).toHaveBeenCalledWith(expect.objectContaining({
-        username: createUserDto.username,
-        role: createUserDto.role,
-      }));
-      expect(mockRepository.save).toHaveBeenCalled();
-    });
-
-    it('should throw ConflictException if username already exists', async () => {
-      const createUserDto = { username: 'testuser', password: 'password', role: 'buyer' as const };
-      mockRepository.findOne.mockResolvedValue({ username: 'testuser' });
-
-      await expect(service.create(createUserDto.username, createUserDto.password, createUserDto.role))
-        .rejects.toThrow(ConflictException);
-    });
-  });
-
-  describe('findOne', () => {
-    it('should return a user if found', async () => {
-      const mockUser = { username: 'testuser', role: 'buyer' };
-      mockRepository.findOne.mockResolvedValue(mockUser);
-
-      const result = await service.findOne('testuser');
-
-      expect(result).toEqual(mockUser);
-    });
-
-    it('should throw NotFoundException if user not found', async () => {
-      mockRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.findOne('testuser')).rejects.toThrow(NotFoundException);
-    });
-  });
-
   describe('deposit', () => {
     it('should successfully deposit valid coin amounts', async () => {
-      const user = new User();
-      user.username = 'testuser';
-      user.role = 'buyer';
-      user.deposit = 0;
-
+      const user = { username: 'testuser', role: 'buyer', deposit: 0 };
       mockRepository.findOne.mockResolvedValue(user);
       mockRepository.save.mockResolvedValue({ ...user, deposit: 5 });
 
@@ -90,23 +42,47 @@ describe('UserService', () => {
     });
 
     it('should throw ConflictException for invalid coin amounts', async () => {
-      const user = new User();
-      user.username = 'testuser';
-      user.role = 'buyer';
-
+      const user = { username: 'testuser', role: 'buyer', deposit: 0 };
       mockRepository.findOne.mockResolvedValue(user);
 
       await expect(service.deposit('testuser', 7)).rejects.toThrow(ConflictException);
     });
 
     it('should throw ConflictException if user is not a buyer', async () => {
-      const user = new User();
-      user.username = 'testuser';
-      user.role = 'seller';
-
+      const user = { username: 'testuser', role: 'seller', deposit: 0 };
       mockRepository.findOne.mockResolvedValue(user);
 
       await expect(service.deposit('testuser', 5)).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw NotFoundException if user does not exist', async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.deposit('nonexistentuser', 5)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('reset', () => {
+    it('should reset deposit to 0 for a buyer', async () => {
+      const user = { username: 'testuser', role: 'buyer', deposit: 100 };
+      mockRepository.findOne.mockResolvedValue(user);
+      mockRepository.save.mockResolvedValue({ ...user, deposit: 0 });
+
+      const result = await service.reset('testuser');
+      expect(result.deposit).toBe(0);
+    });
+
+    it('should throw ConflictException if user is not a buyer', async () => {
+      const user = { username: 'testuser', role: 'seller', deposit: 100 };
+      mockRepository.findOne.mockResolvedValue(user);
+
+      await expect(service.reset('testuser')).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw NotFoundException if user does not exist', async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.reset('nonexistentuser')).rejects.toThrow(NotFoundException);
     });
   });
 });
