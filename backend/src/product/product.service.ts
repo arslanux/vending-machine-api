@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './product.entity';
@@ -18,7 +18,7 @@ export class ProductService {
   async create(createProductDto: CreateProductDto, sellerId: number): Promise<Product> {
     const seller = await this.userRepository.findOne({ where: { id: sellerId } });
     if (!seller || seller.role !== 'seller') {
-      throw new ForbiddenException('Only sellers can create products');
+      throw new ConflictException('Invalid seller');
     }
 
     const product = this.productRepository.create({
@@ -44,7 +44,7 @@ export class ProductService {
   async update(id: number, updateProductDto: UpdateProductDto, sellerId: number): Promise<Product> {
     const product = await this.findOne(id);
     if (product.seller.id !== sellerId) {
-      throw new ForbiddenException('You can only update your own products');
+      throw new ConflictException('You can only update your own products');
     }
 
     Object.assign(product, updateProductDto);
@@ -54,18 +54,22 @@ export class ProductService {
   async remove(id: number, sellerId: number): Promise<void> {
     const product = await this.findOne(id);
     if (product.seller.id !== sellerId) {
-      throw new ForbiddenException('You can only delete your own products');
+      throw new ConflictException('You can only delete your own products');
     }
 
     await this.productRepository.remove(product);
   }
 
-  async buy(productId: number, amount: number, buyerId: number): Promise<{ totalSpent: number, products: Product[], change: number[] }> {
+  async buy(productId: number, amount: number, username: string) {
     const product = await this.findOne(productId);
-    const buyer = await this.userRepository.findOne({ where: { id: buyerId } });
+    const user = await this.userRepository.findOne({ where: { username } });
 
-    if (!buyer || buyer.role !== 'buyer') {
-      throw new ConflictException('Invalid buyer');
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role !== 'buyer') {
+      throw new ConflictException('Only buyers can purchase products');
     }
 
     if (product.amountAvailable < amount) {
@@ -73,7 +77,7 @@ export class ProductService {
     }
 
     const totalCost = product.cost * amount;
-    if (buyer.deposit < totalCost) {
+    if (user.deposit < totalCost) {
       throw new ConflictException('Insufficient funds');
     }
 
@@ -81,17 +85,17 @@ export class ProductService {
     product.amountAvailable -= amount;
     await this.productRepository.save(product);
 
-    // Update buyer's deposit
-    buyer.deposit -= totalCost;
-    await this.userRepository.save(buyer);
+    // Update user's deposit
+    user.deposit -= totalCost;
+    await this.userRepository.save(user);
 
     // Calculate change
-    const change = this.calculateChange(buyer.deposit);
+    const change = this.calculateChange(user.deposit);
 
     return {
       totalSpent: totalCost,
       products: Array(amount).fill(product),
-      change,
+      change: change
     };
   }
 

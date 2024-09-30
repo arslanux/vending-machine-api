@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { List, ListItem, ListItemText, Button, TextField, Typography, Container, Paper, Grid } from '@mui/material';
 
-const ProductList = ({ token, userRole }) => {
+const ProductList = ({ userRole }) => {
   const [products, setProducts] = useState([]);
   const [buyAmount, setBuyAmount] = useState({});
   const [depositAmount, setDepositAmount] = useState('');
@@ -10,44 +10,46 @@ const ProductList = ({ token, userRole }) => {
 
   useEffect(() => {
     fetchProducts();
-  }, [token]);
+  }, []);
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get('http://localhost:3000/product', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/product');
       setProducts(response.data);
     } catch (error) {
-      console.error('Failed to fetch products:', error);
       setMessage('Failed to fetch products: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handleDeposit = async () => {
+    try {
+      await api.put('/user/deposit', { amount: parseInt(depositAmount) });
+      setMessage(`Successfully deposited $${depositAmount}`);
+      setDepositAmount('');
+    } catch (error) {
+      setMessage('Deposit failed: ' + (error.response?.data?.message || error.message));
     }
   };
 
   const handleBuy = async (productId) => {
     try {
-      const response = await axios.post(`http://localhost:3000/product/buy/${productId}`, {
+      const response = await api.post('/product/buy', {
+        productId: productId,
         amount: buyAmount[productId] || 1
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
       });
-      setMessage(`Purchase successful. Total spent: ${response.data.totalSpent}, Change: ${response.data.change.join(', ')}`);
+      setMessage(`Purchase successful. Total spent: $${response.data.totalSpent}, Change: ${response.data.change.join(', ')}`);
       fetchProducts(); // Refresh product list after purchase
     } catch (error) {
       setMessage('Purchase failed: ' + (error.response?.data?.message || error.message));
     }
   };
 
-  const handleDeposit = async () => {
+  const handleReset = async () => {
     try {
-      await axios.put('http://localhost:3000/user/deposit', 
-        { amount: parseInt(depositAmount) },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setMessage(`Successfully deposited $${depositAmount}`);
-      setDepositAmount('');
+      await api.put('/user/reset');
+      setMessage('Deposit reset successfully');
     } catch (error) {
-      setMessage('Deposit failed: ' + (error.response?.data?.message || error.message));
+      setMessage('Reset failed: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -58,7 +60,7 @@ const ProductList = ({ token, userRole }) => {
         
         {userRole === 'buyer' && (
           <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={4}>
               <TextField
                 label="Deposit Amount"
                 type="number"
@@ -67,9 +69,14 @@ const ProductList = ({ token, userRole }) => {
                 fullWidth
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={4}>
               <Button onClick={handleDeposit} variant="contained" color="primary">
                 Deposit
+              </Button>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <Button onClick={handleReset} variant="outlined" color="secondary">
+                Reset Deposit
               </Button>
             </Grid>
           </Grid>

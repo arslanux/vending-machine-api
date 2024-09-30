@@ -5,7 +5,6 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { DepositDto } from './dto/deposit.dto';
 
 @Controller('user')
 export class UserController {
@@ -31,8 +30,8 @@ export class UserController {
   @Put('deposit')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('buyer')
-  async deposit(@Req() req, @Body() depositDto: DepositDto) {
-    return this.userService.deposit(req.user.username, depositDto.amount);
+  async deposit(@Req() req, @Body('amount') amount: number) {
+    return this.userService.deposit(req.user.username, amount);
   }
 
   @Put('reset')

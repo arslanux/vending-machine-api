@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Req, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Req } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -8,18 +8,13 @@ import { UpdateProductDto } from './dto/update-product.dto';
 
 @Controller('product')
 export class ProductController {
-  private readonly logger = new Logger(ProductController.name);
-
   constructor(private readonly productService: ProductService) {}
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('seller')
   async create(@Body() createProductDto: CreateProductDto, @Req() req) {
-    this.logger.log(`Attempting to create product for user ${req.user.username}`);
-    const result = await this.productService.create(createProductDto, req.user.userId);
-    this.logger.log(`Product created successfully for user ${req.user.username}`);
-    return result;
+    return this.productService.create(createProductDto, req.user.userId);
   }
 
   @Get()
@@ -44,5 +39,12 @@ export class ProductController {
   @Roles('seller')
   async remove(@Param('id') id: string, @Req() req) {
     return this.productService.remove(+id, req.user.userId);
+  }
+
+  @Post('buy')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('buyer')
+  async buy(@Req() req, @Body() buyDto: { productId: number, amount: number }) {
+    return this.productService.buy(buyDto.productId, buyDto.amount, req.user.username);
   }
 }
