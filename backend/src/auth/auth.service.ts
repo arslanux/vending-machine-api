@@ -9,7 +9,7 @@ export class AuthService {
 
   constructor(
     private userService: UserService,
-    private jwtService: JwtService,
+    private jwtService: JwtService
   ) {}
 
   async validateUser(username: string, password: string): Promise<any> {
@@ -28,13 +28,7 @@ export class AuthService {
     if (!this.activeSessions.has(user.username)) {
       this.activeSessions.set(user.username, new Set());
     }
-    
-    const userSessions = this.activeSessions.get(user.username);
-    if (userSessions.size >= 5) {
-      throw new UnauthorizedException('Maximum number of active sessions reached. Please log out from another device.');
-    }
-    
-    userSessions.add(token);
+    this.activeSessions.get(user.username).add(token);
     
     return {
       access_token: token,
@@ -43,22 +37,35 @@ export class AuthService {
     };
   }
 
-  async logout(username: string, token: string) {
-    const sessions = this.activeSessions.get(username);
-    if (sessions) {
-      sessions.delete(token);
-      if (sessions.size === 0) {
+  async isTokenActive(username: string, userId: string): Promise<boolean> {
+    const userSessions = this.activeSessions.get(username);
+    if (!userSessions) return false;
+
+    for (const token of userSessions) {
+      try {
+        const payload = this.jwtService.verify(token);
+        if (payload.sub === userId) {
+          return true;
+        }
+      } catch (error) {
+        // Token is invalid or expired, remove it
+        userSessions.delete(token);
+      }
+    }
+    return false;
+  }
+
+  logout(username: string, token: string) {
+    const userSessions = this.activeSessions.get(username);
+    if (userSessions) {
+      userSessions.delete(token);
+      if (userSessions.size === 0) {
         this.activeSessions.delete(username);
       }
     }
   }
 
-  async logoutAll(username: string) {
+  logoutAll(username: string) {
     this.activeSessions.delete(username);
-  }
-
-  isTokenActive(username: string, token: string): boolean {
-    const sessions = this.activeSessions.get(username);
-    return sessions ? sessions.has(token) : false;
   }
 }

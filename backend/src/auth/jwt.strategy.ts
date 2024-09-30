@@ -21,12 +21,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: any) {
     this.logger.log(`Validating token for user ${payload.username}`);
-    const isActive = this.authService.isTokenActive(payload.username, payload.sub);
-    if (!isActive) {
-      this.logger.warn(`Inactive session for user ${payload.username}`);
-      throw new UnauthorizedException('Inactive session');
+    try {
+      const isActive = await this.authService.isTokenActive(payload.username, payload.sub);
+      if (!isActive) {
+        this.logger.warn(`Inactive session for user ${payload.username}`);
+        throw new UnauthorizedException('Inactive session');
+      }
+      this.logger.log(`Token validated for user ${payload.username}`);
+      return { userId: payload.sub, username: payload.username, role: payload.role };
+    } catch (error) {
+      this.logger.error(`Token validation failed for user ${payload.username}: ${error.message}`);
+      throw new UnauthorizedException('Invalid token');
     }
-    this.logger.log(`Token validated for user ${payload.username}`);
-    return { userId: payload.sub, username: payload.username, role: payload.role };
   }
 }

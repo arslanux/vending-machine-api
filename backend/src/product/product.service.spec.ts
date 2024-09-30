@@ -94,4 +94,4 @@ describe('ProductService', () => {
       await expect(service.buy(1, 1, 'nonexistentuser')).rejects.toThrow(NotFoundException);
     });
   });
-});
+}); 
